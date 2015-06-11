@@ -1,12 +1,16 @@
 # Creating image mosaic, adding raster dataset, and populating required fields
 # Global Agriclimate project
 # Haitao Wang | April 2, 2015
+# Update June 09, 2015
+
 import arcpy, arceditor, csv
 from arcpy import env
+from compiler.pyassem import DONE
 
 env.workspace = "//storage.vt.edu/gisdata/ArcGISServerData/cgit/Agroclimate/DataForPublish/WorldAgoData.gdb"
-rasterTable = "//storage.vt.edu/gisdata/ArcGISServerData/cgit/Agroclimate//DataForPublish/pyCreateMosaic/rasList.csv"
+rasterTable = "//storage.vt.edu/gisdata/ArcGISServerData/cgit/Agroclimate/DataForPublish/pyCreateMosaic/rasList.csv"
 agroMosaic = "agroclimate"
+
 Proj = "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];-400 -400 1000000000;-100000 10000;-100000 10000;8.98315284119522E-09;0.001;0.001;IsHighPrecision" 
 
 # Fields for Landscape Modeler web application
@@ -20,14 +24,13 @@ fields = [
              ["RangeLabels", "TEXT", 1024, "Range Labels"], 
              ["NoDataRangeLabels", "TEXT", 1024,"NoData Range Labels"]
           ]
-print "Reading raster information from CSV file..."
+agroRasters = []
 # Read CSV file as list (CSV file stores information of rasters which are for creating mosaic)
 # Alternative: Convert CSV file to JSON row array using https://github.com/shancarter/Mr-Data-Converter
-agroRasters = []
+print "Reading raster information from CSV file..."
 with open(rasterTable, 'rb') as f:
     r = csv.reader(f)
     agroRasters = list(r)[1:]
-print agroRasters
 f.close()
 
 Rasters = []
@@ -45,9 +48,9 @@ try:
     arcpy.CreateMosaicDataset_management(env.workspace, agroMosaic, Proj, "1", "32_BIT_SIGNED", "NONE", "")
     print "New mosaic dataset", agroMosaic, "was created\nAdding", len(agroRasters),"rasters to mosaic dataset..." 
     arcpy.AddRastersToMosaicDataset_management(agroMosaic, "Raster Dataset", Rasters, "UPDATE_CELL_SIZES", "UPDATE_BOUNDARY", "NO_OVERVIEWS", "", "0", "1500", Proj, "", "SUBFOLDERS", "OVERWRITE_DUPLICATES", "NO_PYRAMIDS", "CALCULATE_STATISTICS", "NO_THUMBNAILS", "", "NO_FORCE_SPATIAL_REFERENCE")
+    arcpy.GetMessages()
     print "Caculating statistics..."
     arcpy.CalculateStatistics_management(agroMosaic, "1", "1", "", "SKIP_EXISTING")
-
 except Exception as e:
     print e.message
 
@@ -63,18 +66,18 @@ try:
 except Exception, e:
     print arcpy.GetMessages(messageCount - 1)
 
-arcpy.AddMessage("Populating following fields...") # Populate fields
+arcpy.AddMessage("Populating fields...") # Populate fields
 popFields = [item[0] for i, item in enumerate(fields)]
 print popFields
 with arcpy.da.UpdateCursor(agroMosaic, popFields) as cursor:
     i = 0
     for row in cursor:
-        # populate 7 fields plus "name" field only if the raster layer already exists in agroRasters
+        # populate field only if the raster layer already exists in agroRasters
         if str(row[0]) == str(agroRasters[i][0]):
-            cursor.updateRow(agroRasters[i][:8])
+            cursor.updateRow(agroRasters[i])
             print "Updated:", agroRasters[i][1]                   
         else:
-            print "Nothing wasn't updated"
+            print "Nothing was updated"
         i = i + 1
 del cursor, row
 print "Done."
