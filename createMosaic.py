@@ -1,7 +1,7 @@
 # Creating image mosaic, adding raster dataset, and populating required fields
 # Global Agriclimate project
 # Haitao Wang | April 2, 2015
-# Update June 09, 2015
+# Update June 19, 2015
 
 import arcpy, arceditor, csv
 from arcpy import env
@@ -50,8 +50,6 @@ try:
     print "New mosaic dataset", agroMosaic, "was created\nAdding", len(agroRasters),"rasters to mosaic dataset..." 
     arcpy.AddRastersToMosaicDataset_management(agroMosaic, "Raster Dataset", Rasters, "UPDATE_CELL_SIZES", "UPDATE_BOUNDARY", "NO_OVERVIEWS", "", "0", "1500", Proj, "", "SUBFOLDERS", "OVERWRITE_DUPLICATES", "NO_PYRAMIDS", "CALCULATE_STATISTICS", "NO_THUMBNAILS", "", "NO_FORCE_SPATIAL_REFERENCE")
     arcpy.GetMessages()
-    print "Caculating statistics..."
-    arcpy.CalculateStatistics_management(agroMosaic, "1", "1", "", "SKIP_EXISTING")
 except Exception as e:
     print e.message
 
@@ -60,12 +58,6 @@ arcpy.AddMessage("Adding required fields...") # Add required fields
 for field in fields[2:]: # exclude "Name" and "GroupName"
     # add 7 fields for Landscape Modeler web application
     arcpy.AddField_management(agroMosaic, field[0], field[1], "", "", field[2], field[3], "NULLABLE", "NON_REQUIRED", "")
-
-arcpy.AddMessage("Analyzing mosaic dataset...") # Analyze mosaic dataset
-try:
-    arcpy.AnalyzeMosaicDataset_management(agroMosaic, "", "FOOTPRINT;FUNCTION;RASTER;PATHS;SOURCE_VALIDITY;STALE;PYRAMIDS;STATISTICS;PERFORMANCE;INFORMATION")
-except Exception, e:
-    print arcpy.GetMessages(messageCount - 1)
 
 arcpy.AddMessage("Populating fields...") # Populate fields
 popFields = [item[0] for i, item in enumerate(fields)]
@@ -76,9 +68,22 @@ with arcpy.da.UpdateCursor(agroMosaic, popFields) as cursor:
         # populate field only if the raster layer already exists in agroRasters
         if str(row[0]) == str(agroRasters[i][0]):
             cursor.updateRow(agroRasters[i])
-            print "Updated:", agroRasters[i][2]                   
+            print "Updated:", agroRasters[i][2]
         else:
             print "Nothing was updated"
         i = i + 1
 del cursor
+
+try:
+    print "Caculating statistics..."
+    arcpy.CalculateStatistics_management(agroMosaic, "1", "1", "", "SKIP_EXISTING")
+except Exception as e:
+    print e.message
+    
+arcpy.AddMessage("Analyzing mosaic dataset...") # Analyze mosaic dataset
+try:
+    arcpy.AnalyzeMosaicDataset_management(agroMosaic, "", "FOOTPRINT;FUNCTION;RASTER;PATHS;SOURCE_VALIDITY;STALE;PYRAMIDS;STATISTICS;PERFORMANCE;INFORMATION")
+except Exception, e:
+    print arcpy.GetMessages(messageCount - 1)
+    
 print "Done."
